@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}
+  Task Manager - Index
+{% endblock %}
+
+{% block h1 %}
+  Welcome to Task Manager!
+{% endblock %}
+
+{% block content %}
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-12">
+        {% if iterations %}
+          <table class="table table-striped">
+            <caption>Tasks Summary</caption>
+            <tr>
+              <th>Iteration</th>
+              <th>Total Tasks Count</th>
+              <th>Created At</th>
+              <th>Planned Time</th>
+            </tr>
+            {% for iteration in iterations %}
+              <tr>
+                <td><a href="{% url 'tasks:list' iteration.name %}">{{ iteration.name }}</a></td>
+                <td>{{ iteration.task_set.count }}</td>
+                <td>{{ iteration.date_created }}</td>
+                <td>{{ iteration.planned_time }}</td>
+              </tr>
+            {% endfor %}
+          </table>
+        {% else %}
+          <p>No Tasks!</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

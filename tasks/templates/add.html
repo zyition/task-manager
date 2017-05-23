@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block h1 %}
+  Task Manger - Add Task
+{% endblock %}
+
+{% block content %}
+  <form action="" method="post">
+    {{ form.as_p }}
+    <button type="submit">Add Task</button>
+  </form>
+{% endblock %}

@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% load link %}
+
+{% block title %}
+  Task Manager - {{ iteration.name }} Task List
+{% endblock %}
+
+{% block h1 %}
+  Task Manager - {{ iteration.name }} Task List
+{% endblock %}
+
+{% block content %}
+
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="btn-group btn-group-justified" role="group">
+          <a class="btn btn-primary" role="button" href="{% url 'tasks:export' iteration.name %}">Export</a>
+          <a class="btn btn-primary" role="button" href="{% url 'tasks:export' iteration.name %}?with_owner=true">Export With Owner</a>
+          <a class="btn btn-primary" role="button" href="{% url 'tasks:add' iteration.name %}">Add Task</a>
+          </div>
+        </div>
+      </div>
+    <div class="row">
+      <div class="col-md-12">
+        <div class="h2">
+          Total Planned Time: <span class="label label-default">{{ iteration.planned_time }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-12">
+        {% with iteration.task_set.all as tasks %}
+          {% if tasks %}
+            <table class="sortable table table-striped">
+              <thead>
+                <tr>
+                  <th>Ticket Number</th>
+                  <th>Summary</th>
+                  <th>
+                    <a class="btn btn-info btn-xs" href="javascript:void(0);" onclick="showOwnersTime();"><em>Sum</em></a>
+                    <a class="btn btn-info btn-xs" href="javascript:void(0);" onclick="showGroupedTasks();"><em>Group By</em></a>
+                    Owner
+                  </th>
+                  <th><a class="btn btn-info btn-xs" href="javascript:void(0);" onclick="showSumTime();"><em>Sum</em></a> Estimated Hours</th>
+                  <th>Need Code Review</th>
+                  <th>Review Time</th>
+                  <th>Frozen <em>(Exclude from estimation)</em></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for task in tasks %}
+                  <tr data-task-id="{{ task.id }}">
+                    <td>{{ task.ticket_id|bind_link }}</td>
+                    <td class="editable" data-name="summary">{{ task.summary }}</td>
+                    <td class="editable" data-type="owner-select" data-name="owner_id">{{ task.owner|default_if_none:"" }}</td>
+                    <td class="editable" data-name="estimated_hours">{{ task.estimated_hours }}</td>
+                    <td><input name="need_review" type="checkbox"{% if task.need_review %} checked="checked"{% endif %}></td>
+                    <td class="editable" data-name="review_time">{{ task.review_time }}</td>
+                    <td><input name="frozen" type="checkbox"{% if task.frozen %} checked="checked"{% endif %}></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            No Tasks.
+          {% endif %}
+        {% endwith %}
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="message-modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title"></h4>
+        </div>
+        <div class="modal-body">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}
+
+{% block js %}
+  <script>
+    function showMessage(title, message) {
+      $messageModal = $("#message-modal");
+      $messageModal.find(".modal-title").html(title);
+      $messageModal.find(".modal-body").html(message);
+      $('#message-modal').modal('show');
+    }
+    var owner_select = '{{ owner_select|safe }}';
+    function showOwnersTime() {
+      var sum_url = "{% url 'tasks:owner-hours' iteration.name %}";
+      $.get(sum_url, function(data) {
+        var $messageList = $('<ul>').addClass('list-group');
+        for (var owner in data) {
+          var $line = $('<li>').addClass('list-group-item');
+          $line.text(owner);
+          var $hourBadge = $('<span>').addClass('badge').text(data[owner]);
+          $line.append($hourBadge);
+          $messageList.append($line);
+        }
+        showMessage("Owner Hours", $messageList);
+      });
+    }
+    function showSumTime() {
+      var sum_url = "{% url "tasks:total-hours" iteration.name %}";
+      $.get(sum_url, function(data) {
+        showMessage("Total Time", data);
+      });
+    }
+    function showGroupedTasks() {
+      var url = "{% url "tasks:tasks-by-owner" iteration.name %}";
+      $.get(url, function(data) {
+        $messageContainer = $('<div>');
+        for (var owner in data) {
+          var $dl = $('<dl>');
+          $dl.append($('<dt>').text(owner));
+          var $dd = $('<dd>');
+          var $ul = $('<ul>').addClass("list-unstyled");
+          tickets = data[owner];
+          for (var i=0; i<tickets.length; i++) {
+            var ticket = tickets[i];
+            var ticket_id = ticket[0], need_review = ticket[1];
+            var ticket_text = ticket_id.toString();
+            if (need_review) {
+              ticket_text += ' *';
+            }
+            $ul.append($('<li>').text(ticket_text));
+          }
+          $dd.append($ul);
+          $dl.append($dd);
+          $messageContainer.append($dl);
+        }
+        showMessage("Tasks Group By Owner", $messageContainer);
+      });
+    }
+    $(function() {
+      $('.editable:not([data-type="owner-select"])').editable('{% url "tasks:update" %}', {
+        submit: 'OK',
+        submitdata: function (value, settings) {
+          var obj = {};
+          var t = $(this);
+          obj.task_id  = t.parent('tr').data('task-id');
+          obj.name = t.data('name');
+          return obj;
+        }
+      });
+      $('.editable[data-type="owner-select"]').editable('{% url "tasks:update" %}', {
+        submit: 'OK',
+        data: owner_select,
+        type: 'select',
+        submitdata: function () {
+          var obj = {};
+          var t = $(this);
+          obj.task_id  = t.parent('tr').data('task-id');
+          obj.name = t.data('name');
+          return obj;
+        }
+      });
+      $('.sortable').sortable({
+        items: '> tbody > *',
+        stop: function(event, ui) {
+          var update_order_url = '{% url "tasks:update-ordering" %}';
+          var t = $(ui.item);
+          var idx = t.parent().children().index(t);
+          $.get(update_order_url, {task_id: t.data('task-id'), ordering: idx});
+        }
+      });
+      $('[name=frozen]').change(function(){
+        var freeze_url = '{% url "tasks:freeze" %}';
+        var t = $(this);
+        var frozen = t.prop('checked');
+        $.get(freeze_url, {task_id: t.closest('tr').data('task-id'), frozen: frozen});
+      });
+      $('[name=need_review]').change(function(){
+        var need_review_url = '{% url "tasks:need-review" %}';
+        var t = $(this);
+        var need_review = t.prop('checked');
+        $.get(need_review_url, {task_id: t.closest('tr').data('task-id'), need_review: need_review});
+      });
+    });
+  </script>
+{% endblock %}
