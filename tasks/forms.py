@@ -2,6 +2,7 @@ import re
 from StringIO import StringIO
 
 from django import forms
+from django.core import validators
 from django.db.models import F
 from django.forms.utils import ErrorList
 
@@ -11,7 +12,7 @@ task_info_cpt = re.compile(r'(^#\d+)(.*$)', re.I)
 
 
 class TaskConvertForm(forms.Form):
-    iteration = forms.CharField()
+    iteration = forms.CharField(validators=[validators.RegexValidator(regex=r"[a-zA-Z0-9]+")])
     planned_time = forms.FloatField(required=False)
     tasks = forms.CharField(label=u'Tasks Information', widget=forms.Textarea)
 
